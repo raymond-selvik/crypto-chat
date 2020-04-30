@@ -1,50 +1,44 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using Cryptochat.Server.UserManagement;
 
 namespace Cryptochat.Server
 {
     public class ChatHub : Hub
     {
-        static ConcurrentDictionary<string, User> users = new ConcurrentDictionary<string,User>();
+        private readonly ILogger logger;
+        private readonly IUserService userService;
 
+        public ChatHub(ILogger<ChatHub> logger, IUserService userService)
+        {
+            this.logger = logger;
+            this.userService = userService;
+        }
 
-        public void Login(string username)
+        public void Login(string username, string publicKey)
         {
             User user = new User
             {
-                name = username,
-                id = Context.ConnectionId
+                Name = username,
+                Id = Context.ConnectionId,
+                PublicKey = publicKey
             };
 
-            if(!users.TryAdd(user.name, user))
-            {
-                Console.WriteLine("Failed to add user");
-            }
+            userService.StoreUser(user);
 
-            Console.WriteLine($"Added user: {user.name} {user.id}" + users.IsEmpty);
+            logger.LogInformation($"Added user: {user.Name} {user.Id}");
         }
-        public async Task Send(string message)
+        public void Send(string user, string message)
         {
-            Console.WriteLine(message);
-            await Clients.All.SendAsync("ReceiveMessage", message);
-        }
-
-        public Task SendMessageToUser(string user)
-        {
-            Console.WriteLine("Private Chat Request" + users.IsEmpty);
-            User receiver = new User();
-            users.TryGetValue(user, out receiver);
-            Console.WriteLine("Sending to" + receiver.id);
-
+            logger.LogInformation(message);
+            User receiver = userService.GetUser(user);
             
-            return Clients.Client(receiver.id).SendAsync("ReceiveMessage", "From server private");
-        }
+            logger.LogInformation(message);
 
-        public string GetConnectionId()
-        {
-            return Context.ConnectionId;
+            Clients.Client(receiver.Id).SendAsync("ReceiveMessage", message);
         }
     }
 }

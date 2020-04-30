@@ -1,6 +1,9 @@
+using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+
+using Newtonsoft.Json;
 
 namespace Cryptochat.Client
 {
@@ -20,7 +23,7 @@ namespace Cryptochat.Client
             }
         }
 
-        public EncryptedMessage EncryptMessage(string message, byte[] receiverPublicKey)
+        public string EncryptMessage(string message, byte[] receiverPublicKey)
         {
             var encryptedMessage = new EncryptedMessage();
 
@@ -34,12 +37,16 @@ namespace Cryptochat.Client
             encryptedMessage.Hmac = ComputeMessageHash(sessionKey, encryptedMessage.Message);
             encryptedMessage.Signature = SignMessage(encryptedMessage.Hmac);
 
-            return encryptedMessage;
+            var serializedMessage = JsonConvert.SerializeObject(encryptedMessage);
+
+            return serializedMessage;
         }
 
         public string DecryptMessage(EncryptedMessage encryptedMessage, byte[] receiverPublicKey)
         {
+            Console.WriteLine("Decrpyting.....");
             byte[] sessionKey = DecryptSessionKey(encryptedMessage.EncryptedSessionKey);
+            Console.WriteLine(Convert.ToBase64String(sessionKey));
 
             VerifyHash(sessionKey, encryptedMessage.Hmac, encryptedMessage.Message);
             VerifySignature(encryptedMessage.Hmac, encryptedMessage.Signature, receiverPublicKey);
@@ -100,7 +107,7 @@ namespace Cryptochat.Client
                 rsa.PersistKeyInCsp = false;
                 rsa.ImportRSAPublicKey(receiverPublicKey, out _);
 
-                return rsa.Encrypt(sessionKey, true);
+                return rsa.Encrypt(sessionKey, false);
             }
         }
 
@@ -112,7 +119,7 @@ namespace Cryptochat.Client
                 rsa.ImportRSAPublicKey(this.publicKey, out _);
                 rsa.ImportRSAPrivateKey(this.privateKey, out _);
 
-                return rsa.Decrypt(encryptedSessionKey, true);
+                return rsa.Decrypt(encryptedSessionKey, false);
             }
         }
 
@@ -154,7 +161,7 @@ namespace Cryptochat.Client
 
         void VerifySignature(byte[] hash, byte[] signature, byte[] receiverPublicKey)
         {
-            using(var rsa = new RSACryptoServiceProvider())
+            using(var rsa = new RSACryptoServiceProvider(2048))
             {
                 rsa.ImportRSAPublicKey(receiverPublicKey, out _);
 

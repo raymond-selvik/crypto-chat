@@ -1,6 +1,8 @@
 using System;
+using System.Net.Http;
 using System.Text;
 using Microsoft.AspNetCore.SignalR.Client;
+using Newtonsoft.Json;
 
 namespace Cryptochat.Client
 {
@@ -18,18 +20,48 @@ namespace Cryptochat.Client
 
             hub.On<string>("ReceiveMessage", (message) =>
             {
-                Console.WriteLine("Message: " + message );
+                Console.WriteLine("1" );
+                var encryptedMessage = JsonConvert.DeserializeObject<EncryptedMessage>(message);
+                var publicKey = "";
+
+
+                Console.WriteLine("1" );
+                using(var client = new HttpClient())
+                {
+                    var response = client.GetAsync($"http://localhost:5000/key?username=user1").Result;
+                    publicKey = response.Content.ReadAsStringAsync().Result;
+                    Console.WriteLine(publicKey);
+                }
+
+                var decryptedMessage = encryptionService.DecryptMessage(encryptedMessage, Convert.FromBase64String(publicKey));
+
+                Console.WriteLine("Message: " + decryptedMessage );
             });
         }
 
         public void Login(string username)
         {
-            hub.InvokeAsync("Login", username, Encoding.UTF8.GetString(encryptionService.GetPublicKey()));
+            hub.InvokeAsync("Login", username, Convert.ToBase64String(encryptionService.GetPublicKey()));
         }
 
         public void SendMessageToUser(string user, string message)
         {
-            hub.InvokeAsync("SendMessageToUser", message);
+            Console.WriteLine("Getting Public Key from" + user);
+            var publicKey = "";
+
+            using(var client = new HttpClient())
+            {
+                var response = client.GetAsync($"http://localhost:5000/key?username={user}").Result;
+                publicKey = response.Content.ReadAsStringAsync().Result;
+            }
+
+            Console.WriteLine(publicKey);
+
+            Console.WriteLine("Encrypting Message");
+            var encryptedMessage = encryptionService.EncryptMessage(message, Convert.FromBase64String(publicKey));
+            Console.WriteLine("Sending Message");
+
+            hub.InvokeAsync("Send", user, encryptedMessage);
         }
     }
 }
