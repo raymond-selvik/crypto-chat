@@ -1,29 +1,23 @@
 ﻿using System;   
 using Microsoft.AspNetCore.SignalR.Client;
 
-namespace chatClient
+namespace Cryptochat.Client
 {
     class Program
     {
-        static HubConnection hub;
+        static ChatClient chatClient;
         static void Main(string[] args)
         {
-            hub = new HubConnectionBuilder().WithUrl("http://localhost:5000/chathub").Build();
-            
-            hub.StartAsync().GetAwaiter().GetResult();
+            var username = args[0];
 
-            hub.On<string>("Send", (message) =>
-            {
-                Console.WriteLine("Message: " + message );
-            });
+            chatClient = new ChatClient("http://localhost:5000/chathub");
+            chatClient.Login(username);
 
             string message = Console.ReadLine();
 
-            Console.WriteLine("Hello World!");
-
             while (message != string.Empty)
             {
-                hub.InvokeAsync("Send", message );
+                chatClient.SendMessageToUser(message, message);
                 message = Console.ReadLine();
             }
         }
