@@ -45,7 +45,7 @@ namespace Cryptochat.Client.Encryption
             }
         }
 
-        public string Decrypt(byte[] encryptedData)
+        public byte[] Decrypt(byte[] encryptedData)
         {
             using (var des = new AesCryptoServiceProvider())
             {
@@ -61,7 +61,7 @@ namespace Cryptochat.Client.Encryption
                     cryptostream.Write(encryptedData, 0, encryptedData.Length);
                     cryptostream.FlushFinalBlock();
 
-                    return Encoding.UTF8.GetString(memorystream.ToArray());
+                    return memorystream.ToArray();
                 }
             }
         }

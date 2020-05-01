@@ -29,7 +29,9 @@ namespace Cryptochat.Client.Encryption
             var rsa = new RsaEncryption();
             encryptedMessage.EncryptedSessionKey = rsa.Encrypt(sessionKey, receiverPublicKey);
 
-            encryptedMessage.Hmac = ComputeMessageHash(sessionKey, encryptedMessage.Message);
+
+            var hmac = new HmacAuthentication(sessionKey);
+            encryptedMessage.Hmac = hmac.ComputeHash(encryptedMessage.Message);
 
             encryptedMessage.Signature = rsa.SignData(encryptedMessage.Hmac, rsaKeys.privateKey);
 
@@ -46,95 +48,21 @@ namespace Cryptochat.Client.Encryption
             var rsa = new RsaEncryption();
             byte[] sessionKey = rsa.Decrypt(encryptedMessage.EncryptedSessionKey, rsaKeys.privateKey);
 
-            Console.WriteLine(Convert.ToBase64String(sessionKey));
-
-            try
+            var hmac = new HmacAuthentication(sessionKey);
+            if(!hmac.VerifyHash(encryptedMessage.Hmac, encryptedMessage.Message))
             {
-                VerifyHash(sessionKey, encryptedMessage.Hmac, encryptedMessage.Message);
-            }
-            catch(CryptographicException e) 
-            {
-                Console.WriteLine(e.Message);
+                throw new CryptographicException("HMAC does not match hash of message.");
             }
 
-            try
+             if(!rsa.VerifySignature(encryptedMessage.Hmac, encryptedMessage.Signature, receiverPublicKey))
             {
-                rsa.VerifySignature(encryptedMessage.Hmac, encryptedMessage.Signature, receiverPublicKey);
-            }
-            catch(CryptographicException e) 
-            {
-                Console.WriteLine(e.Message);
+                throw new CryptographicException("Signature of message could not be verified.");
             }
 
             var aes = new AesEncryption(sessionKey, encryptedMessage.IV);
-            string message = aes.Decrypt(encryptedMessage.Message);
+            var message = aes.Decrypt(encryptedMessage.Message);
 
-            return message;
-        }
-
-        byte[] ComputeMessageHash(byte[] sessionKey, byte[] encryptedMessage)
-        {
-            using(var hmac = new HMACSHA256(sessionKey))
-            {
-                return hmac.ComputeHash(encryptedMessage);
-            }
-        }
-
-        void VerifyHash(byte[] sessionKey, byte[] hash, byte[] encryptedMessage)
-        {
-            using (var hmac = new HMACSHA256(sessionKey))
-            {
-                var calculatedHash = hmac.ComputeHash(encryptedMessage);
-
-                if(!Compare(hash, calculatedHash))
-                {
-                    throw new CryptographicException("HMAC does not match encrpyted message.");
-                }
-            }
-        }
-
-        byte[] SignMessage(byte[] hmac)
-        {
-            using(var rsa = new RSACryptoServiceProvider(2048))
-            {
-                rsa.PersistKeyInCsp = false;
-                rsa.ImportRSAPrivateKey(rsaKeys.privateKey, out _);
-
-                var rsaFormatter = new RSAPKCS1SignatureFormatter(rsa);
-                rsaFormatter.SetHashAlgorithm("SHA256");
-
-                return rsaFormatter.CreateSignature(hmac);
-            }
-
-        }
-
-        void VerifySignature(byte[] hash, byte[] signature, byte[] receiverPublicKey)
-        {
-            using(var rsa = new RSACryptoServiceProvider(2048))
-            {
-                rsa.ImportRSAPublicKey(receiverPublicKey, out _);
-
-                var rsaDeformatter = new RSAPKCS1SignatureDeformatter(rsa);
-                rsaDeformatter.SetHashAlgorithm("SHA256");
-
-                if(!rsaDeformatter.VerifySignature(hash, signature))
-                {
-                    throw new CryptographicException("Signature cannnot be verified.");
-                }
-            }
-        }
-
-
-        bool Compare(byte[] array1, byte[] array2)
-        {
-            var result = array1.Length == array2.Length;
-
-            for(var i = 0; i < array1.Length && i < array2.Length; ++i)
-            {
-                result &= array1[i]==array2[i];
-            }
-
-            return result;
+            return Encoding.UTF8.GetString(message);
         }
 
         public byte[] GetPublicKey()
@@ -142,5 +70,4 @@ namespace Cryptochat.Client.Encryption
             return this.rsaKeys.publicKey;
         }
     }
-
 }

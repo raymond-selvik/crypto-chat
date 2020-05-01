@@ -53,7 +53,7 @@ namespace Cryptochat.Client.Encryption
             }
         }
 
-        public void VerifySignature(byte[] data, byte[] signature, byte[] publicKey)
+        public bool VerifySignature(byte[] data, byte[] signature, byte[] publicKey)
         {
             using(var rsa = new RSACryptoServiceProvider(2048))
             {
@@ -62,12 +62,8 @@ namespace Cryptochat.Client.Encryption
                 var rsaDeformatter = new RSAPKCS1SignatureDeformatter(rsa);
                 rsaDeformatter.SetHashAlgorithm("SHA256");
 
-                if(!rsaDeformatter.VerifySignature(data, signature))
-                {
-                    throw new CryptographicException("Signature cannnot be verified.");
-                }
+                return rsaDeformatter.VerifySignature(data, signature);
             }
         }
-    
     }
 }
