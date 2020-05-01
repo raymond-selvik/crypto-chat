@@ -9,18 +9,12 @@ namespace Cryptochat.Client.Encryption
 {
     public class MessageEncryptionService
     {
-        private byte[] publicKey;
-        private byte[] privateKey;
+        private RsaKeys rsaKeys;
 
         public MessageEncryptionService()
         {
-            using(var rsa = new RSACryptoServiceProvider(2048))
-            {
-                rsa.PersistKeyInCsp = false;
-
-                this.publicKey = rsa.ExportRSAPublicKey();
-                this.privateKey = rsa.ExportRSAPrivateKey();
-            }
+            var rsa = new RsaEncryption();
+            this.rsaKeys = rsa.GenerateKeys();
         }
 
         public string EncryptMessage(string message, byte[] receiverPublicKey)
@@ -29,11 +23,12 @@ namespace Cryptochat.Client.Encryption
 
             var aes = new AesEncryption(32, 16);
             encryptedMessage.IV = aes.iv;
-            encryptedMessage.Message = aes.Encrypt(message);
+            encryptedMessage.Message = aes.Encrypt(Encoding.UTF8.GetBytes(message));
 
             var sessionKey = aes.key;
+            var rsa = new RsaEncryption();
+            encryptedMessage.EncryptedSessionKey = rsa.Encrypt(sessionKey, receiverPublicKey);
 
-            encryptedMessage.EncryptedSessionKey = EncryptSessionKey(sessionKey, receiverPublicKey);
             encryptedMessage.Hmac = ComputeMessageHash(sessionKey, encryptedMessage.Message);
             encryptedMessage.Signature = SignMessage(encryptedMessage.Hmac);
 
@@ -45,7 +40,10 @@ namespace Cryptochat.Client.Encryption
         public string DecryptMessage(EncryptedMessage encryptedMessage, byte[] receiverPublicKey)
         {
             Console.WriteLine("Decrpyting.....");
-            byte[] sessionKey = DecryptSessionKey(encryptedMessage.EncryptedSessionKey);
+
+            var rsa = new RsaEncryption();
+            byte[] sessionKey = rsa.Decrypt(encryptedMessage.EncryptedSessionKey, rsaKeys.privateKey);
+
             Console.WriteLine(Convert.ToBase64String(sessionKey));
 
             try
@@ -88,8 +86,8 @@ namespace Cryptochat.Client.Encryption
             using(var rsa = new RSACryptoServiceProvider(2048))
             {
                 rsa.PersistKeyInCsp = false;
-                rsa.ImportRSAPublicKey(this.publicKey, out _);
-                rsa.ImportRSAPrivateKey(this.privateKey, out _);
+                rsa.ImportRSAPublicKey(rsaKeys.publicKey, out _);
+                rsa.ImportRSAPrivateKey(rsaKeys.privateKey, out _);
 
                 return rsa.Decrypt(encryptedSessionKey, false);
             }
@@ -121,7 +119,7 @@ namespace Cryptochat.Client.Encryption
             using(var rsa = new RSACryptoServiceProvider(2048))
             {
                 rsa.PersistKeyInCsp = false;
-                rsa.ImportRSAPrivateKey(this.privateKey, out _);
+                rsa.ImportRSAPrivateKey(rsaKeys.privateKey, out _);
 
                 var rsaFormatter = new RSAPKCS1SignatureFormatter(rsa);
                 rsaFormatter.SetHashAlgorithm("SHA256");
@@ -162,7 +160,7 @@ namespace Cryptochat.Client.Encryption
 
         public byte[] GetPublicKey()
         {
-            return this.publicKey;
+            return this.rsaKeys.publicKey;
         }
     }
 

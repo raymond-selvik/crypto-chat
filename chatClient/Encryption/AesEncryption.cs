@@ -23,9 +23,8 @@ namespace Cryptochat.Client.Encryption
             this.iv = iv;
         }
 
-        public byte[] Encrypt(string data)
+        public byte[] Encrypt(byte[] data)
         {
-            byte[] message = Encoding.UTF8.GetBytes(data);
 
             using(var aes = new AesCryptoServiceProvider())
             {
@@ -38,7 +37,7 @@ namespace Cryptochat.Client.Encryption
                 {
                     var cryptostream = new CryptoStream(memorystream, aes.CreateEncryptor(), CryptoStreamMode.Write);
 
-                    cryptostream.Write(message, 0, message.Length);
+                    cryptostream.Write(data, 0, data.Length);
                     cryptostream.FlushFinalBlock();
 
                     return memorystream.ToArray();
@@ -46,7 +45,7 @@ namespace Cryptochat.Client.Encryption
             }
         }
 
-        public string Decrypt(byte[] encryptedMessage)
+        public string Decrypt(byte[] encryptedData)
         {
             using (var des = new AesCryptoServiceProvider())
             {
@@ -59,7 +58,7 @@ namespace Cryptochat.Client.Encryption
                 {
                     var cryptostream = new CryptoStream(memorystream, des.CreateDecryptor(), CryptoStreamMode.Write);
 
-                    cryptostream.Write(encryptedMessage, 0, encryptedMessage.Length);
+                    cryptostream.Write(encryptedData, 0, encryptedData.Length);
                     cryptostream.FlushFinalBlock();
 
                     return Encoding.UTF8.GetString(memorystream.ToArray());
