@@ -5,7 +5,7 @@ using System.Text;
 
 using Newtonsoft.Json;
 
-namespace Cryptochat.Client
+namespace Cryptochat.Client.Encryption
 {
     public class MessageEncryptionService
     {
@@ -27,12 +27,12 @@ namespace Cryptochat.Client
         {
             var encryptedMessage = new EncryptedMessage();
 
-            var sessionKey = GenerateRandomNumber(32);
+            var aes = new AesEncryption(32, 16);
+            encryptedMessage.IV = aes.iv;
+            encryptedMessage.Message = aes.Encrypt(message);
 
-            var iv = GenerateRandomNumber(16);
-            encryptedMessage.IV = iv;
+            var sessionKey = aes.key;
 
-            encryptedMessage.Message = EncryptMessagePayload(message, sessionKey, iv);
             encryptedMessage.EncryptedSessionKey = EncryptSessionKey(sessionKey, receiverPublicKey);
             encryptedMessage.Hmac = ComputeMessageHash(sessionKey, encryptedMessage.Message);
             encryptedMessage.Signature = SignMessage(encryptedMessage.Hmac);
@@ -48,56 +48,28 @@ namespace Cryptochat.Client
             byte[] sessionKey = DecryptSessionKey(encryptedMessage.EncryptedSessionKey);
             Console.WriteLine(Convert.ToBase64String(sessionKey));
 
-            VerifyHash(sessionKey, encryptedMessage.Hmac, encryptedMessage.Message);
-            VerifySignature(encryptedMessage.Hmac, encryptedMessage.Signature, receiverPublicKey);
+            try
+            {
+                VerifyHash(sessionKey, encryptedMessage.Hmac, encryptedMessage.Message);
+            }
+            catch(CryptographicException e) 
+            {
+                Console.WriteLine(e.Message);
+            }
 
-            string message = DecryptMessagePayload(encryptedMessage.Message, sessionKey, encryptedMessage.IV);
+            try
+            {
+                VerifySignature(encryptedMessage.Hmac, encryptedMessage.Signature, receiverPublicKey);
+            }
+            catch(CryptographicException e) 
+            {
+                Console.WriteLine(e.Message);
+            }
+
+            var aes = new AesEncryption(sessionKey, encryptedMessage.IV);
+            string message = aes.Decrypt(encryptedMessage.Message);
 
             return message;
-        }
-
-        byte[] EncryptMessagePayload(string messageString, byte[] sessionKey, byte[] iv)
-        {
-            byte[] message = Encoding.UTF8.GetBytes(messageString);
-
-            using(var aes = new AesCryptoServiceProvider())
-            {
-                aes.Mode = CipherMode.CBC;
-                aes.Padding = PaddingMode.PKCS7;
-                aes.Key = sessionKey; 
-                aes.IV = iv;
-
-                using (var memorystream = new MemoryStream())
-                {
-                    var cryptostream = new CryptoStream(memorystream, aes.CreateEncryptor(), CryptoStreamMode.Write);
-
-                    cryptostream.Write(message, 0, message.Length);
-                    cryptostream.FlushFinalBlock();
-
-                    return memorystream.ToArray();
-                }
-            }
-        }
-
-        string DecryptMessagePayload(byte[] encryptedMessage, byte[] sessionKey, byte[] iv)
-        {
-            using (var des = new AesCryptoServiceProvider())
-            {
-                des.Mode = CipherMode.CBC;
-                des.Padding = PaddingMode.PKCS7;
-                des.Key = sessionKey;
-                des.IV = iv;
-
-                using (var memorystream = new MemoryStream())
-                {
-                    var cryptostream = new CryptoStream(memorystream, des.CreateDecryptor(), CryptoStreamMode.Write);
-
-                    cryptostream.Write(encryptedMessage, 0, encryptedMessage.Length);
-                    cryptostream.FlushFinalBlock();
-
-                    return Encoding.UTF8.GetString(memorystream.ToArray());
-                }
-            }
         }
 
         byte[] EncryptSessionKey(byte[] sessionKey, byte[] receiverPublicKey)
@@ -175,18 +147,6 @@ namespace Cryptochat.Client
             }
         }
 
-
-        byte[] GenerateRandomNumber(int length)
-        {
-            using (var rng = new RNGCryptoServiceProvider())
-            {
-                var num = new byte[length];
-
-                rng.GetBytes(num);
-
-                return num;
-            }
-        }
 
         bool Compare(byte[] array1, byte[] array2)
         {

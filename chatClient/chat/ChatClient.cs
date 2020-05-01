@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using System.Text;
+using Cryptochat.Client.Encryption;
 using Microsoft.AspNetCore.SignalR.Client;
 using Newtonsoft.Json;
 
