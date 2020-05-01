@@ -38,6 +38,36 @@ namespace Cryptochat.Client.Encryption
                 return rsa.Decrypt(encryptedData, false);
             }
         }
+
+        public byte[] SignData(byte[] data, byte[] privateKey)
+        {
+             using(var rsa = new RSACryptoServiceProvider(2048))
+            {
+                rsa.PersistKeyInCsp = false;
+                rsa.ImportRSAPrivateKey(privateKey, out _);
+
+                var rsaFormatter = new RSAPKCS1SignatureFormatter(rsa);
+                rsaFormatter.SetHashAlgorithm("SHA256");
+
+                return rsaFormatter.CreateSignature(data);
+            }
+        }
+
+        public void VerifySignature(byte[] data, byte[] signature, byte[] publicKey)
+        {
+            using(var rsa = new RSACryptoServiceProvider(2048))
+            {
+                rsa.ImportRSAPublicKey(publicKey, out _);
+
+                var rsaDeformatter = new RSAPKCS1SignatureDeformatter(rsa);
+                rsaDeformatter.SetHashAlgorithm("SHA256");
+
+                if(!rsaDeformatter.VerifySignature(data, signature))
+                {
+                    throw new CryptographicException("Signature cannnot be verified.");
+                }
+            }
+        }
     
     }
 }

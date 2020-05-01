@@ -30,8 +30,10 @@ namespace Cryptochat.Client.Encryption
             encryptedMessage.EncryptedSessionKey = rsa.Encrypt(sessionKey, receiverPublicKey);
 
             encryptedMessage.Hmac = ComputeMessageHash(sessionKey, encryptedMessage.Message);
-            encryptedMessage.Signature = SignMessage(encryptedMessage.Hmac);
 
+            encryptedMessage.Signature = rsa.SignData(encryptedMessage.Hmac, rsaKeys.privateKey);
+
+            
             var serializedMessage = JsonConvert.SerializeObject(encryptedMessage);
 
             return serializedMessage;
@@ -57,7 +59,7 @@ namespace Cryptochat.Client.Encryption
 
             try
             {
-                VerifySignature(encryptedMessage.Hmac, encryptedMessage.Signature, receiverPublicKey);
+                rsa.VerifySignature(encryptedMessage.Hmac, encryptedMessage.Signature, receiverPublicKey);
             }
             catch(CryptographicException e) 
             {
@@ -68,29 +70,6 @@ namespace Cryptochat.Client.Encryption
             string message = aes.Decrypt(encryptedMessage.Message);
 
             return message;
-        }
-
-        byte[] EncryptSessionKey(byte[] sessionKey, byte[] receiverPublicKey)
-        {
-            using(var rsa = new RSACryptoServiceProvider(2048))
-            {
-                rsa.PersistKeyInCsp = false;
-                rsa.ImportRSAPublicKey(receiverPublicKey, out _);
-
-                return rsa.Encrypt(sessionKey, false);
-            }
-        }
-
-        byte[] DecryptSessionKey(byte[] encryptedSessionKey)
-        {
-            using(var rsa = new RSACryptoServiceProvider(2048))
-            {
-                rsa.PersistKeyInCsp = false;
-                rsa.ImportRSAPublicKey(rsaKeys.publicKey, out _);
-                rsa.ImportRSAPrivateKey(rsaKeys.privateKey, out _);
-
-                return rsa.Decrypt(encryptedSessionKey, false);
-            }
         }
 
         byte[] ComputeMessageHash(byte[] sessionKey, byte[] encryptedMessage)
