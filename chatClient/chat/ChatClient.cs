@@ -22,7 +22,6 @@ namespace Cryptochat.Client
             hub.On<string>("ReceiveMessage", (message) =>
             {
                 Console.WriteLine("1" );
-                var encryptedMessage = JsonConvert.DeserializeObject<EncryptedMessage>(message);
                 var publicKey = "";
 
 
@@ -34,7 +33,7 @@ namespace Cryptochat.Client
                     Console.WriteLine(publicKey);
                 }
 
-                var decryptedMessage = encryptionService.DecryptMessage(encryptedMessage, Convert.FromBase64String(publicKey));
+                var decryptedMessage = encryptionService.DecryptMessage(message, Convert.FromBase64String(publicKey));
 
                 Console.WriteLine("Message: " + decryptedMessage );
             });

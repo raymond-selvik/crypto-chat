@@ -41,9 +41,9 @@ namespace Cryptochat.Client.Encryption
             return serializedMessage;
         }
 
-        public string DecryptMessage(EncryptedMessage encryptedMessage, byte[] receiverPublicKey)
+        public string DecryptMessage(string message, byte[] receiverPublicKey)
         {
-            Console.WriteLine("Decrpyting.....");
+            var encryptedMessage = JsonConvert.DeserializeObject<EncryptedMessage>(message);
 
             var rsa = new RsaEncryption();
             byte[] sessionKey = rsa.Decrypt(encryptedMessage.EncryptedSessionKey, rsaKeys.privateKey);
@@ -60,9 +60,11 @@ namespace Cryptochat.Client.Encryption
             }
 
             var aes = new AesEncryption(sessionKey, encryptedMessage.IV);
-            var message = aes.Decrypt(encryptedMessage.Message);
 
-            return Encoding.UTF8.GetString(message);
+            var decryptedMessage = aes.Decrypt(encryptedMessage.Message);
+
+
+            return Encoding.UTF8.GetString(decryptedMessage);
         }
 
         public byte[] GetPublicKey()

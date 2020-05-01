@@ -1,4 +1,4 @@
-namespace Cryptochat.Client
+namespace Cryptochat.Client.Encryption
 {
     public class EncryptedMessage
     {
