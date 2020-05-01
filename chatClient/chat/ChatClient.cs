@@ -1,9 +1,7 @@
 using System;
 using System.Net.Http;
-using System.Text;
 using Cryptochat.Client.Encryption;
 using Microsoft.AspNetCore.SignalR.Client;
-using Newtonsoft.Json;
 
 namespace Cryptochat.Client
 {
@@ -12,6 +10,8 @@ namespace Cryptochat.Client
         HubConnection hub;
         MessageEncryptionService encryptionService;
 
+        string username;
+
         public ChatClient(string hubUrl)
         {
             hub = new HubConnectionBuilder().WithUrl(hubUrl).Build();
@@ -19,49 +19,42 @@ namespace Cryptochat.Client
 
             encryptionService = new MessageEncryptionService();
 
-            hub.On<string>("ReceiveMessage", (message) =>
+            hub.On<string, string>("ReceiveMessage", (from, message) =>
             {
-                Console.WriteLine("1" );
-                var publicKey = "";
+                var senderKey = GetUserPublicKey(from);
 
 
-                Console.WriteLine("1" );
-                using(var client = new HttpClient())
-                {
-                    var response = client.GetAsync($"http://localhost:5000/key?username=user1").Result;
-                    publicKey = response.Content.ReadAsStringAsync().Result;
-                    Console.WriteLine(publicKey);
-                }
+                var decryptedMessage = encryptionService.DecryptMessage(message, senderKey);
 
-                var decryptedMessage = encryptionService.DecryptMessage(message, Convert.FromBase64String(publicKey));
-
-                Console.WriteLine("Message: " + decryptedMessage );
+                Console.WriteLine($"{from}: {decryptedMessage}");
             });
         }
 
         public void Login(string username)
         {
-            hub.InvokeAsync("Login", username, Convert.ToBase64String(encryptionService.GetPublicKey()));
+            this.username = username;
+
+            hub.InvokeAsync("Login", username, encryptionService.GetPublicKey());
         }
 
         public void SendMessageToUser(string user, string message)
         {
-            Console.WriteLine("Getting Public Key from" + user);
-            var publicKey = "";
-
-            using(var client = new HttpClient())
-            {
-                var response = client.GetAsync($"http://localhost:5000/key?username={user}").Result;
-                publicKey = response.Content.ReadAsStringAsync().Result;
-            }
-
-            Console.WriteLine(publicKey);
+            var receiverKey = GetUserPublicKey(user);
 
             Console.WriteLine("Encrypting Message");
-            var encryptedMessage = encryptionService.EncryptMessage(message, Convert.FromBase64String(publicKey));
+            var encryptedMessage = encryptionService.EncryptMessage(message, receiverKey);
             Console.WriteLine("Sending Message");
 
-            hub.InvokeAsync("Send", user, encryptedMessage);
+            hub.InvokeAsync("Send", username, user, encryptedMessage);
+        }
+
+        string GetUserPublicKey(string username)
+        {
+            using(var client = new HttpClient())
+            {
+                var response = client.GetAsync($"http://localhost:5000/key?username={username}").Result;
+                return response.Content.ReadAsStringAsync().Result;
+            }
         }
     }
 }

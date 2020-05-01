@@ -13,12 +13,16 @@ namespace Cryptochat.Client
             chatClient = new ChatClient("http://localhost:5000/chathub");
             chatClient.Login(username);
 
-            string message = Console.ReadLine();
+            Console.WriteLine($"Welcome to Crypto-Chat {username}!");
 
-            while (message != string.Empty)
+            while (true)
             {
-                chatClient.SendMessageToUser(message, message);
-                message = Console.ReadLine();
+                Console.WriteLine("Who do you want to send a message to?");
+                var to = Console.ReadLine();
+
+                Console.WriteLine("Type in your message:");
+                var message = Console.ReadLine();
+                chatClient.SendMessageToUser(to, message);
             }
         }
     }

@@ -31,14 +31,12 @@ namespace Cryptochat.Server
 
             logger.LogInformation($"Added user: {user.Name} {user.Id}");
         }
-        public void Send(string user, string message)
+        public void Send(string from, string to, string message)
         {
             logger.LogInformation(message);
-            User receiver = userService.GetUser(user);
             
-            logger.LogInformation(message);
-
-            Clients.Client(receiver.Id).SendAsync("ReceiveMessage", message);
+            User receiver = userService.GetUser(to);
+            Clients.Client(receiver.Id).SendAsync("ReceiveMessage", from, message);
         }
     }
 }
